@@ -10,16 +10,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Bersihkan Storage Runner (Bebaskan ~25GB)
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android/sdk/ndk
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo docker system prune -af || true
+          df -h
+
       - name: Checkout kode
         uses: actions/checkout@v4
 
       - name: Extract ZIP otomatis
         run: |
-          unzip -o "*.zip"
-          if [ ! -f "package.json" ]; then
-            SUBDIR=$(find . -maxdepth 2 -name "package.json" -exec dirname {} \; | head -n 1)
-            cp -r "$SUBDIR"/* .
+          mkdir -p extracted
+          unzip -oq "*.zip" -d extracted
+          PKG_PATH=$(find extracted -name "package.json" | head -n 1)
+          if [ -z "$PKG_PATH" ]; then
+            echo "File package.json tidak ditemukan di dalam ZIP!"
+            exit 1
           fi
+          SRC_DIR=$(dirname "$PKG_PATH")
+          cp -rf "$SRC_DIR"/. .
+          rm -rf extracted *.zip
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -34,24 +48,38 @@ jobs:
 
       - name: Install dependencies & Build Web
         run: |
-          npm install --legacy-peer-deps
+          npm install --legacy-peer-deps --no-audit --no-fund
           npm run build
 
       - name: Bungkus ke Android (Capacitor)
         run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android --legacy-peer-deps
+          npm install @capacitor/core @capacitor/cli @capacitor/android --legacy-peer-deps --no-audit --no-fund
           npx cap init "Alarm Weebs" "com.cakdoelnan.alarmweebs" --web-dir=dist
           npx cap add android
           npx cap sync android
+
+      - name: Tambahkan Izin WakeLock & Alarm
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />\n    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />|' "$MANIFEST"
 
       - name: Compile Debug APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --no-daemon
 
-      - name: Upload Hasil APK
+      - name: Upload Hasil APK (Artifacts)
         uses: actions/upload-artifact@v4
         with:
           name: Alarm-Weebs-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publish ke GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Alarm Weebs v1.0.${{ github.run_number }}
+          files: android/app/build/outputs/apk/debug/app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
