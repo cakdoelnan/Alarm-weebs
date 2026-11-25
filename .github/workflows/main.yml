@@ -13,6 +13,14 @@ jobs:
       - name: Checkout kode
         uses: actions/checkout@v4
 
+      - name: Extract ZIP otomatis
+        run: |
+          unzip -o "*.zip"
+          if [ ! -f "package.json" ]; then
+            SUBDIR=$(find . -maxdepth 2 -name "package.json" -exec dirname {} \; | head -n 1)
+            cp -r "$SUBDIR"/* .
+          fi
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -26,12 +34,12 @@ jobs:
 
       - name: Install dependencies & Build Web
         run: |
-          npm install
+          npm install --legacy-peer-deps
           npm run build
 
       - name: Bungkus ke Android (Capacitor)
         run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npm install @capacitor/core @capacitor/cli @capacitor/android --legacy-peer-deps
           npx cap init "Alarm Weebs" "com.cakdoelnan.alarmweebs" --web-dir=dist
           npx cap add android
           npx cap sync android
