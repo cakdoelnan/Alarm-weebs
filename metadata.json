@@ -1,0 +1,6 @@
+{
+  "name": "KiraClock",
+  "description": "Japanese pop-culture and anime-inspired alarm clock with companion themes, wake-up challenges, vibrate-only mode, hourly Jiho vibration chimes, and vibration strength control.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
