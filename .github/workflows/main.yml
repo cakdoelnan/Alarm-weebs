@@ -1,0 +1,49 @@
+name: Build APK from AI Studio
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout kode
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install dependencies & Build Web
+        run: |
+          npm install
+          npm run build
+
+      - name: Bungkus ke Android (Capacitor)
+        run: |
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npx cap init "Alarm Weebs" "com.cakdoelnan.alarmweebs" --web-dir=dist
+          npx cap add android
+          npx cap sync android
+
+      - name: Compile Debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload Hasil APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Alarm-Weebs-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
